@@ -1,13 +1,17 @@
-.navbar {
-    .links {
+.app {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3rem;
+    padding: 2rem;
+    font-family: "Roboto Thin", sans-serif;
+
+    .games {
         list-style: none;
-        display: flex;
-        flex-direction: row;
-        justify-content: center;
-        gap: 2rem;
         padding: 0;
 
-        .link {
+        .game {
             padding: 1rem 2rem;
             background-color: #191919;
             border: 0.005rem solid #f8f8f8;
@@ -16,7 +20,6 @@
             color: #f8f8f8;
 
             transition: all 0.5s ease-in-out;
-
             &:hover {
                 color: #f8f8f8;
                 background-color: #535353;
