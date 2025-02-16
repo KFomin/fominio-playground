@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useEffect, useRef} from 'react';
 import {observable, action} from 'mobx';
 import {observer} from 'mobx-react';
 import './Puzzle.css';
@@ -9,6 +9,8 @@ const Model = () => {
     return {
         imageUrl: observable.box(''),
         imagePieces: observable.array(),
+        imageWidth: observable.box(1920),
+        imageHeight: observable.box(1080),
     };
 };
 
@@ -39,7 +41,7 @@ const Actions = (model) => {
             const image = new Image();
             image.src = imageUrl;
             image.crossOrigin = 'anonymous';
-            image.onload = action(() => { // Обернуть в action
+            image.onload = action(() => {
                 const canvasUrls = [];
                 for (let x = 0; x < numColsToCut; ++x) {
                     for (let y = 0; y < numRowsToCut; ++y) {
@@ -66,7 +68,7 @@ const Actions = (model) => {
                 }
 
                 const pieces = canvasUrls.map((url, index) => ({orderNo: index, url}));
-                model.imagePieces.replace(pieces); // Заменяем текущие кусочки
+                model.imagePieces.replace(pieces);
             });
         }),
     };
@@ -99,30 +101,70 @@ const ImagePiece = observer(({piece, index, movePiece}) => {
         hover(item) {
             if (item.index !== index) {
                 movePiece(item.index, index);
-                item.index = index; // Обновляем индекс текущего элемента
+                item.index = index;
             }
         },
     }));
 
     return (
         <img
-            ref={(node) => drag(drop(node))} // Оборачиваем в drag и drop
+            ref={(node) => drag(drop(node))}
             src={piece.url}
             alt={`Piece ${piece.orderNo}`}
             title={String(piece.orderNo)}
-            className={'image-piece'}
-            style={{opacity: isDragging ? 0.5 : 1}} // Изменяем визуальное состояние при перетаскивании
+            style={{opacity: isDragging ? 0.5 : 1, width: puzzleStore.imageWidth.get() / 4, height: puzzleStore.imageHeight.get() / 4}}
         />
     );
 });
+
+const GridCell = ({index, drop}) => {
+    const [, ref] = useDrop({
+        accept: 'IMAGE_PIECE',
+        drop: (item) => {
+            console.log(`Dropped piece ${item.index} in cell ${index}`);
+        },
+    });
+
+    return (
+        <div ref={ref} className="grid-cell">
+            {/* Cell logic */}
+        </div>
+    );
+};
 
 const Puzzle = observer(() => {
     const movePiece = (fromIndex, toIndex) => {
         const pieces = puzzleStore.imagePieces.slice();
         const [movedPiece] = pieces.splice(fromIndex, 1);
         pieces.splice(toIndex, 0, movedPiece);
-        puzzleStore.imagePieces.replace(pieces); // Обновляем массив в store
+        puzzleStore.imagePieces.replace(pieces);
     };
+
+    const imageRef = useRef(null);
+    const gridRef = useRef(null);
+
+    const setSizes = () => {
+        if (imageRef.current && gridRef.current) {
+            const {clientWidth: width, clientHeight: height} = imageRef.current;
+            puzzleStore.imageWidth.set(width);
+            puzzleStore.imageHeight.set(height);
+            gridRef.current.style.width = `${width}px`;
+            gridRef.current.style.height = `${height}px`;
+        }
+    }
+
+    const numCols = 4;
+    const numRows = 4;
+
+    useEffect(() => {
+        window.addEventListener('resize', setSizes);
+        window.addEventListener('load', setSizes);
+        return () => {
+            window.removeEventListener('resize', setSizes);
+            window.removeEventListener('load', setSizes);
+        };
+    }, []);
+
 
     return (
         <DndProvider backend={HTML5Backend}>
@@ -137,12 +179,33 @@ const Puzzle = observer(() => {
                         />
                     ))}
                 </div>
-                <div className={'image-container'}>
+                <div className={'image-container'} style={{position: 'relative'}}>
                     {puzzleStore.imageUrl.get() && (
-                        <img className={'image'}
-                             src={puzzleStore.imageUrl.get()}
-                             alt="Puzzle"/>
+                        <img
+                            ref={imageRef}
+                            className={'image'}
+                            src={puzzleStore.imageUrl.get()}
+                            style={{opacity: 0}}
+                            alt="Puzzle"
+                        />
                     )}
+                    <div
+                        ref={gridRef}
+                        className="grid"
+                        style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            display: 'grid',
+                            gridTemplateColumns: `repeat(${numCols}, 1fr)`,
+                            gridTemplateRows: `repeat(${numRows}, 1fr)`,
+                            pointerEvents: 'none',
+                        }}
+                    >
+                        {Array.from({length: numRows * numCols}).map((_, index) => (
+                            <GridCell key={index} index={index}/>
+                        ))}
+                    </div>
                 </div>
             </div>
         </DndProvider>
