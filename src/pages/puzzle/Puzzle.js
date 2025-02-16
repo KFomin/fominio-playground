@@ -2,6 +2,8 @@ import React from 'react';
 import {observable, action} from 'mobx';
 import {observer} from 'mobx-react';
 import './Puzzle.css';
+import {DndProvider, useDrag, useDrop} from "react-dnd";
+import {HTML5Backend} from 'react-dnd-html5-backend';
 
 const Model = () => {
     return {
@@ -83,29 +85,67 @@ const puzzleStore = createPuzzleStore();
 puzzleStore.loadImage();
 puzzleStore.cutImageIntoPieces(puzzleStore.imageUrl.get());
 
-const Puzzle = observer(() => {
+const ImagePiece = observer(({piece, index, movePiece}) => {
+    const [{isDragging}, drag] = useDrag(() => ({
+        type: 'IMAGE_PIECE',
+        item: {index},
+        collect: (monitor) => ({
+            isDragging: monitor.isDragging(),
+        }),
+    }));
+
+    const [, drop] = useDrop(() => ({
+        accept: 'IMAGE_PIECE',
+        hover(item) {
+            if (item.index !== index) {
+                movePiece(item.index, index);
+                item.index = index; // Обновляем индекс текущего элемента
+            }
+        },
+    }));
+
     return (
-        <div className="puzzle-container">
-            <div className={'pieces-container'}>
-                {puzzleStore.imagePieces.map((piece, index) => (
-                    <img
-                        key={index}
-                        src={piece.url}
-                        alt={`Piece ${piece.orderNo}`}
-                        title={String(piece.orderNo)}
-                        className={'image-piece'}
-                    />
-                ))}
+        <img
+            ref={(node) => drag(drop(node))} // Оборачиваем в drag и drop
+            src={piece.url}
+            alt={`Piece ${piece.orderNo}`}
+            title={String(piece.orderNo)}
+            className={'image-piece'}
+            style={{opacity: isDragging ? 0.5 : 1}} // Изменяем визуальное состояние при перетаскивании
+        />
+    );
+});
+
+const Puzzle = observer(() => {
+    const movePiece = (fromIndex, toIndex) => {
+        const pieces = puzzleStore.imagePieces.slice();
+        const [movedPiece] = pieces.splice(fromIndex, 1);
+        pieces.splice(toIndex, 0, movedPiece);
+        puzzleStore.imagePieces.replace(pieces); // Обновляем массив в store
+    };
+
+    return (
+        <DndProvider backend={HTML5Backend}>
+            <div className="puzzle-container">
+                <div className={'pieces-container'}>
+                    {puzzleStore.imagePieces.map((piece, index) => (
+                        <ImagePiece
+                            key={index}
+                            piece={piece}
+                            index={index}
+                            movePiece={movePiece}
+                        />
+                    ))}
+                </div>
+                <div className={'image-container'}>
+                    {puzzleStore.imageUrl.get() && (
+                        <img className={'image'}
+                             src={puzzleStore.imageUrl.get()}
+                             alt="Puzzle"/>
+                    )}
+                </div>
             </div>
-            <div className={'image-container'}>
-                {puzzleStore.imageUrl.get() && (
-                    <img className={'image'}
-                         ref={puzzleStore.imageRef}
-                         src={puzzleStore.imageUrl.get()}
-                         alt="Puzzle"/>
-                )}
-            </div>
-        </div>
+        </DndProvider>
     );
 });
 

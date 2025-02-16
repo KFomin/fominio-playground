@@ -8,6 +8,7 @@
     .pieces-container {
         width: 20%;
         overflow: auto;
+        scrollbar-width: none;
         max-height: 90vh;
 
         .image-piece {
